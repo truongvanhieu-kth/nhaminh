@@ -184,7 +184,7 @@ const face=(n,z=34)=>`<svg width="${z}" height="${z}" viewBox="0 0 24 24" aria-h
 function setMood(w,k){const td=today();S.moods[td]=S.moods[td]||{};S.moods[td][w]=k;save();draw()}
 function fam(){const m=S.moods[today()]||{},low=Object.values(m).some(v=>v<=1),nd=Object.values(S.done).flat().length;
 const B=[["Nhà toán học","calc",S.me>=10,"10 câu toán đúng"],["Chăm học","book",S.logs.length>=5,"5 buổi học"],["Giữ lửa","flame",streak()>=3,"3 ngày liên tiếp"],["Heo vàng","piggy",sav()>=100000,"Tiết kiệm 100.000đ"],["Siêu việc nhà","ok",nd>=10,"10 việc nhà"],["Nhà thông thái","spark",S.trc>=5,"5 câu đố vui"],["Nhà chính tả","edit",S.spc>=5,"5 từ viết đúng"]];
-return `<div class="card"><h2>${ic("heart")} Hôm nay cả nhà thấy thế nào?</h2>${[["Con",S.kid],["Ba","Ba"],["Mẹ","Mẹ"]].map(([w,nm])=>`<div class="row"><b style="width:56px">${esc(nm)}</b>${[0,1,2,3,4].map(k=>`<button aria-label="${ML[k]}" title="${ML[k]}" onclick="setMood('${w}',${k})" style="border:0;background:none;padding:2px;border-radius:50%;cursor:pointer;opacity:${m[w]==null||m[w]==k?1:.35};outline:${m[w]==k?"3px solid var(--grape)":"0"}">${face(k)}</button>`).join("")}</div>`).join("")}${low?'<p style="font-weight:700;color:var(--coral)">Hôm nay có người hơi buồn. Hãy ngồi cạnh và hỏi thăm nhau nhé.</p>':""}</div>
+return `<div class="card"><h2>${ic("heart")} Hôm nay cả nhà thấy thế nào?</h2>${S.users.map(u=>[({con:"Con",ba:"Ba",me:"Mẹ"})[u.id]||u.id,u.name]).map(([w,nm])=>`<div class="row"><b style="width:56px">${esc(nm)}</b>${[0,1,2,3,4].map(k=>`<button aria-label="${ML[k]}" title="${ML[k]}" onclick="setMood('${w}',${k})" style="border:0;background:none;padding:2px;border-radius:50%;cursor:pointer;opacity:${m[w]==null||m[w]==k?1:.35};outline:${m[w]==k?"3px solid var(--grape)":"0"}">${face(k)}</button>`).join("")}</div>`).join("")}${low?'<p style="font-weight:700;color:var(--coral)">Hôm nay có người hơi buồn. Hãy ngồi cạnh và hỏi thăm nhau nhé.</p>':""}</div>
 <div class="grid" style="margin-top:14px"><div class="card"><h2>${ic("ok")} Mục tiêu của cả nhà</h2><div class="list">${S.goals.map((g,i)=>`<div><button class="btn sm ${g.d?"g":""}" onclick="S.goals[${i}].d=!S.goals[${i}].d;if(S.goals[${i}].d)starAdd(3);save();draw()">${ic(g.d?"ok":"dot",16)}</button><span class="g" style="${g.d?"text-decoration:line-through;color:var(--mut)":""}">${esc(g.t)}</span><button class="btn sm c" onclick="S.goals.splice(${i},1);save();draw()">Xoá</button></div>`).join("")||'<p class="mut">Đặt một mục tiêu chung, ví dụ: đọc xong một cuốn truyện.</p>'}</div><div class="row"><input id="gt" placeholder="Mục tiêu mới" style="flex:1"><button class="btn sm p" onclick="const t=$('gt').value.trim();if(t){S.goals.push({t,d:false});save();draw()}">Thêm</button></div><p class="mut">Hoàn thành mục tiêu được 3 sao.</p></div>
 <div class="card"><h2>${ic("star")} Huy hiệu</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px">${B.map(b=>`<div style="text-align:center;opacity:${b[2]?1:.4}"><span class="tile" style="margin:0 auto 4px;width:46px;height:46px;border-radius:16px;background:${b[2]?"linear-gradient(135deg,#FFD23F,#FF9F43)":"var(--mut)"}">${ic(b[1],24)}</span><b style="font-size:13px">${b[0]}</b><div class="mut" style="font-size:11px">${b[3]}</div></div>`).join("")}</div></div></div>
 <div class="card" style="margin-top:14px"><h2>${ic("note")} Sao lưu và chuyển sang máy khác</h2><p class="mut">Sao chép mã, rồi dán vào máy khác để cả nhà dùng chung dữ liệu.</p><div class="row"><button class="btn sm" onclick="exportD()">Sao chép mã</button><button class="btn sm p" onclick="importD()">Dán mã</button></div></div>`}
@@ -695,8 +695,8 @@ const bkParse=s=>{s=String(s).trim();return s[0]=="{"?JSON.parse(s):bkDec(s)};
 const bkMsg=t=>{try{toast2(t)}catch(e){alert(t)}};
 const canBk=()=>!!me()&&rk(me())>=2; /* ba mẹ (cấp 2) trở lên được lấy file/mã sao lưu */
 function bkPack(withTx,ts){const o=Object.assign({},S);if(!withTx)delete o.tx;o._bk=ts||Date.now();return o}
-function bkApply(o,ts){const keepTx=S.tx,tab=S.tab;try{localStorage.setItem("nhaminh_prev",JSON.stringify(S))}catch(e){}
-const n=Object.assign({},def,o);delete n._bk;if(!Array.isArray(o.tx))n.tx=keepTx||[];n.bkTs=ts;n.tab=tab;S=n;fix();save()}
+function bkApply(o,ts,mg){const keepTx=S.tx,tab=S.tab,lu=(S.users||[]).filter(u=>!(o.users||[]).some(x=>x.id==u.id)),old=S;try{localStorage.setItem("nhaminh_prev",JSON.stringify(S))}catch(e){}
+const n=Object.assign({},def,o);delete n._bk;if(!Array.isArray(o.tx))n.tx=keepTx||[];n.bkTs=ts;n.tab=tab;if(!n.nt&&old.nt)n.nt=old.nt;if(mg&&lu.length){n.users=(n.users||[]).concat(lu);["bal","earn","pts"].forEach(k=>{n[k]=Object.assign({},n[k]);lu.forEach(u=>{if(old[k]&&old[k][u.id]!=null)n[k][u.id]=old[k][u.id]})})}S=n;fix();save()}
 async function bkStore(code,ts){try{localStorage.setItem("nhaminh_bk",JSON.stringify({code,ts}))}catch(e){}
 if(DB&&canBk()){try{await DB.doc("family/backup").set({code,ts,by:ME})}catch(e){}}}
 function bkDb(){return new Promise(res=>{let done=0;const f=v=>{if(!done){done=1;res(v)}};setTimeout(()=>f(null),2500);
@@ -713,7 +713,7 @@ try{for(let i=0;i<8&&!DB;i++)await new Promise(r=>setTimeout(r,300));
 const b=await bkFetch();if(!b||!(b.ts>(S.bkTs||0)))return;
 let o=b.o;if(!o){try{o=bkDec(b.code)}catch(e){return}}
 if(!o||!Array.isArray(o.users))return;delete o.tx;
-bkApply(o,b.ts);draw();bkMsg("Đã tự nạp dữ liệu từ mã sao lưu lúc "+new Date(b.ts).toLocaleString("vi-VN"))}
+bkApply(o,b.ts,1);draw();bkMsg("Đã tự nạp dữ liệu từ mã sao lưu lúc "+new Date(b.ts).toLocaleString("vi-VN"))}
 catch(e){}finally{bkBusy=false}}
 function bkSave(quiet){if(!canBk())return;const ts=Date.now();S.bkTs=ts;save();bkStore(bkEnc(bkPack(false,ts)),ts);if(!quiet){bkMsg("Đã lưu bản sao lưu mới. Máy khác sẽ tự nạp khi đăng nhập.");draw()}}
 function bkImport(o){if(!o||typeof o!="object"||!Array.isArray(o.users))throw 0;const ts=Math.max(o._bk||0,Date.now());bkApply(o,ts);bkStore(bkEnc(bkPack(false,ts)),ts);draw()}
@@ -730,8 +730,28 @@ function bkCard(){let st="";try{const r=JSON.parse(localStorage.getItem("nhaminh
 const info=`<p class="mut">Mỗi lần đăng nhập, app tự nạp dữ liệu từ file saoluu.json (cùng thư mục với index.html)${st?" (máy này đang có bản lúc "+st+")":""}.</p>`;
 if(!canBk())return `<div class="card" style="margin-top:14px"><h2>${ic("note")} Sao lưu dữ liệu</h2>${info}<p class="mut">Chỉ ba mẹ mới lấy được file và mã sao lưu.</p></div>`;
 return `<div class="card" style="margin-top:14px"><h2>${ic("note")} Sao lưu và chuyển sang máy khác</h2>${info}<div class="row"><button class="btn sm g" onclick="bkSave()">Lưu bản sao lưu mới</button><button class="btn sm" onclick="exportD()">Sao chép mã</button><button class="btn sm y" onclick="bkFile()">Tải saoluu.json</button></div><div class="row"><button class="btn sm p" onclick="importD()">Dán mã</button><button class="btn sm p" onclick="$('bkf').click()">Nạp từ file</button><button class="btn sm c" onclick="bkUndo()">Hoàn tác lần nạp gần nhất</button><input id="bkf" type="file" accept=".json,.txt,application/json,text/plain" style="display:none" onchange="bkLoadFile(this)"></div></div>`}
-{const f0=fam;fam=function(){const h=f0(),k=h.indexOf("Sao lưu và chuyển sang máy khác");if(k<0)return h;const s=h.lastIndexOf('<div class="card"',k);return h.slice(0,s)+bkCard()}}
+{const f0=fam;fam=function(){const h=f0(),k=h.indexOf("Sao lưu và chuyển sang máy khác");if(k<0)return h;const s=h.lastIndexOf('<div class="card"',k);return h.slice(0,s)+bkCard()+ntCard()}}
 {const d0=doPin;doPin=function(){const was=ME;d0();if(ME&&ME!==was)autoBk()}}
+/* ===== 12. Nhắc nhau qua ntfy.sh · mỗi người một kênh riêng ===== */
+const ntT=u=>S.nt&&u?S.nt+"-"+u.id:"";
+function ntPush(ids,title,body,pr){if(!S.nt||!ids||!ids.length||!body)return;
+const click=(location.origin&&location.origin!="null")?location.origin+location.pathname:undefined;
+ids.forEach(id=>{const u=U(id);if(!u)return;try{fetch("https://ntfy.sh/",{method:"POST",body:JSON.stringify({topic:ntT(u),title,message:body,priority:pr||3,tags:["house"],click})}).catch(()=>{})}catch(e){}})}
+const ntTo=to=>(!to||to=="all")?S.users.filter(u=>u.id!=ME).map(u=>u.id):[to].filter(i=>i!=ME);
+const ntParents=()=>S.users.filter(u=>u.role!="kid"&&u.id!=ME).map(u=>u.id);
+{const s0=sendMsg;sendMsg=function(t,to){const tx=(t||($("mx")&&$("mx").value)||"").trim(),dst=to||($("mt")&&$("mt").value)||"all";s0(t,to);if(tx&&me())ntPush(ntTo(dst),me().name,tx,3)}}
+{const c0=cSub;cSub=function(id){const last=S.cq.length?S.cq[S.cq.length-1].id:"";c0(id);const q=S.cq[S.cq.length-1];if(q&&q.id!=last&&q.by==ME&&me())ntPush(ntParents(),me().name,"đã hoàn thành: "+q.t+". Vào kiểm tra giúp nhé.",3)}}
+{const c0=sendCall;sendCall=function(k){const b=lastSend;c0(k);if(lastSend!=b&&me())ntPush(ntParents(),me().name,CK[k][0],4)}}
+{const a0=ackCall;ackCall=function(id,m){let c=null;try{c=CALLS().find(x=>x.id==id)}catch(e){}a0(id,m);if(c&&c.from&&me())ntPush([c.from],me().name,m=="later"?"hẹn lát nữa sẽ đến với con nhé":"đang đến với con!",4)}}
+function ntOn(reset){if(!canBk())return;if(reset&&!confirm("Tạo kênh mới? Mọi người phải đăng ký lại tên kênh mới."))return;
+const a=new Uint8Array(8);crypto.getRandomValues(a);S.nt="nm-"+Array.from(a,x=>(x%36).toString(36)).join("");save();bkSave(true);draw();
+alert("Đã bật. Hãy bấm Tải saoluu.json rồi thay file trên web để các máy khác có kênh này.")}
+function ntCopy(){const t=ntT(me());try{navigator.clipboard.writeText(t).then(()=>bkMsg("Đã sao chép tên kênh."),()=>prompt("Sao chép tên kênh:",t))}catch(e){prompt("Sao chép tên kênh:",t)}}
+function ntTest(){ntPush([ME],"Nhà mình","Thông báo thử thành công",3);bkMsg("Đã gửi thử. Xem điện thoại nhé.")}
+function ntOpen(){window.open("https://ntfy.sh/"+encodeURIComponent(ntT(me())),"_blank")}
+function ntCard(){const p=canBk(),h=`<h2>${ic("bell")} Nhắc nhau trên điện thoại</h2>`;
+if(!S.nt)return `<div class="card" style="margin-top:14px">${h}<p class="mut">Chưa bật. ${p?"Bấm nút dưới để tạo kênh thông báo cho cả nhà.":"Nhờ ba mẹ bật giúp nhé."}</p>${p?'<button class="btn sm g" onclick="ntOn()">Bật thông báo</button>':""}</div>`;
+return `<div class="card" style="margin-top:14px">${h}<p class="mut">Tên kênh của bạn trên ntfy: <b>${esc(ntT(me()))}</b></p><div class="row"><button class="btn sm" onclick="ntCopy()">Sao chép tên kênh</button><button class="btn sm y" onclick="ntTest()">Gửi thử cho mình</button><button class="btn sm p" onclick="ntOpen()">Mở kênh</button>${p?'<button class="btn sm c" onclick="ntOn(1)">Tạo kênh mới</button>':""}</div><p class="mut">Cài app ntfy (App Store hoặc Google Play), bấm dấu +, dán tên kênh của bạn và giữ máy chủ mặc định ntfy.sh. Mỗi người dùng tên kênh riêng của mình. Từ giờ lời nhắn, việc nhà chờ kiểm tra, cuộc gọi của con và các thông báo khác sẽ nhắc nhau ngay.</p></div>`}
 draw();
 if(me())autoBk();
 </script>
