@@ -686,6 +686,53 @@ function khGs(u){if(!isP()||!confirm("Đặt số ván thắng về 0?"))return;
 {const dK=draw;draw=function(){const P=!!me()&&isP(),w=P&&S.tab=="kidh";if(!P&&S.tab=="kidh")S.tab="home";const tn=S.tab;if(w)S.tab="home";dK();if(w)S.tab=tn;if(!me())return;
 const nv=$("nav");if(nv){if(!P)nv.querySelectorAll("[onclick=\"go('kidh')\"]").forEach(b=>b.remove());if(w)nv.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.getAttribute("onclick")=="go('kidh')"))}
 if(w)$("app").innerHTML=khTab()}}
+/* ===== 11. Tự nạp dữ liệu từ mã sao lưu sau khi đăng nhập · ba mẹ lấy file sao lưu ===== */
+/* Dán mã sao lưu vào đây nếu muốn máy mới tự có dữ liệu ngay cả khi chưa kết nối chung (để trống cũng được). */
+const BACKUP_CODE="";
+const bkEnc=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o))));
+const bkDec=t=>JSON.parse(decodeURIComponent(escape(atob(String(t).trim()))));
+const bkParse=s=>{s=String(s).trim();return s[0]=="{"?JSON.parse(s):bkDec(s)};
+const bkMsg=t=>{try{toast2(t)}catch(e){alert(t)}};
+const canBk=()=>!!me()&&rk(me())>=2; /* ba mẹ (cấp 2) trở lên được lấy file/mã sao lưu */
+function bkPack(withTx,ts){const o=Object.assign({},S);if(!withTx)delete o.tx;o._bk=ts||Date.now();return o}
+function bkApply(o,ts){const keepTx=S.tx,tab=S.tab;try{localStorage.setItem("nhaminh_prev",JSON.stringify(S))}catch(e){}
+const n=Object.assign({},def,o);delete n._bk;if(!Array.isArray(o.tx))n.tx=keepTx||[];n.bkTs=ts;n.tab=tab;S=n;fix();save()}
+async function bkStore(code,ts){try{localStorage.setItem("nhaminh_bk",JSON.stringify({code,ts}))}catch(e){}
+if(DB&&canBk()){try{await DB.doc("family/backup").set({code,ts,by:ME})}catch(e){}}}
+function bkDb(){return new Promise(res=>{let done=0;const f=v=>{if(!done){done=1;res(v)}};setTimeout(()=>f(null),2500);
+try{const d=DB.doc("family/backup");if(d.get)d.get().then(x=>f(x&&x.exists?x.data():null),()=>f(null));else{const u=d.onSnapshot(x=>{f(x&&x.exists?x.data():null);try{u()}catch(e){}},()=>f(null))}}catch(e){f(null)}})}
+async function bkJson(){try{const r=await fetch("nhaminh.json?t="+Date.now(),{cache:"no-store"});if(!r.ok)return null;const o=await r.json();if(!o||!Array.isArray(o.users))return null;const lm=Date.parse(r.headers.get("last-modified")||"");return{o,ts:o._bk||(lm>0?lm:1)}}catch(e){return null}}
+async function bkFetch(){const c=[];const jf=await bkJson();if(jf)c.push(jf);
+try{const r=JSON.parse(localStorage.getItem("nhaminh_bk")||"null");if(r&&r.code)c.push(r)}catch(e){}
+if(BACKUP_CODE){try{c.push({code:BACKUP_CODE,ts:bkDec(BACKUP_CODE)._bk||1})}catch(e){}}
+if(DB){const d=await bkDb();if(d&&d.code)c.push({code:d.code,ts:d.ts||0})}
+let b=null;c.forEach(x=>{if(!b||x.ts>b.ts)b=x});return b}
+let bkBusy=false;
+async function autoBk(){if(bkBusy||!me())return;bkBusy=true;
+try{for(let i=0;i<8&&!DB;i++)await new Promise(r=>setTimeout(r,300));
+const b=await bkFetch();if(!b||!(b.ts>(S.bkTs||0)))return;
+let o=b.o;if(!o){try{o=bkDec(b.code)}catch(e){return}}
+if(!o||!Array.isArray(o.users))return;delete o.tx;
+bkApply(o,b.ts);draw();bkMsg("Đã tự nạp dữ liệu từ mã sao lưu lúc "+new Date(b.ts).toLocaleString("vi-VN"))}
+catch(e){}finally{bkBusy=false}}
+function bkSave(quiet){if(!canBk())return;const ts=Date.now();S.bkTs=ts;save();bkStore(bkEnc(bkPack(false,ts)),ts);if(!quiet){bkMsg("Đã lưu bản sao lưu mới. Máy khác sẽ tự nạp khi đăng nhập.");draw()}}
+function bkImport(o){if(!o||typeof o!="object"||!Array.isArray(o.users))throw 0;const ts=Math.max(o._bk||0,Date.now());bkApply(o,ts);bkStore(bkEnc(bkPack(false,ts)),ts);draw()}
+exportD=function(){if(!canBk()){alert("Chỉ ba mẹ mới lấy được mã sao lưu.");return}bkSave(true);const t=bkEnc(bkPack(true,S.bkTs));try{navigator.clipboard.writeText(t).then(()=>alert("Đã sao chép mã sao lưu."),()=>prompt("Sao chép mã này:",t))}catch(e){prompt("Sao chép mã này:",t)}};
+importD=function(){if(!canBk()){alert("Chỉ ba mẹ mới nạp được mã sao lưu.");return}const t=prompt("Dán mã sao lưu (dữ liệu hiện tại sẽ bị thay thế):");if(!t)return;try{bkImport(bkParse(t))}catch(e){alert("Mã không hợp lệ.")}};
+function bkFile(){if(!canBk()){alert("Chỉ ba mẹ mới lấy được file sao lưu.");return}bkSave(true);const o=bkPack(false,S.bkTs);
+try{const b=new Blob([JSON.stringify(o)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="nhaminh.json";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);bkMsg("Đã tạo nhaminh.json. Hãy đặt file này cạnh index.html.")}
+catch(e){prompt("Không tải được file. Hãy sao chép mã này:",bkEnc(o))}}
+function bkLoadFile(i){const f=i.files&&i.files[0];if(!f||!canBk())return;const r=new FileReader();r.onload=()=>{try{bkImport(bkParse(r.result))}catch(e){alert("File không hợp lệ.")}i.value=""};r.readAsText(f)}
+function bkUndo(){if(!canBk())return;let p=null;try{p=JSON.parse(localStorage.getItem("nhaminh_prev")||"null")}catch(e){}
+if(!p){alert("Chưa có dữ liệu cũ để hoàn tác.");return}if(!confirm("Quay lại dữ liệu trước lần nạp gần nhất?"))return;
+S=Object.assign({},def,p);S.bkTs=Date.now();fix();save();draw()}
+function bkCard(){let st="";try{const r=JSON.parse(localStorage.getItem("nhaminh_bk")||"null");if(r)st=new Date(r.ts).toLocaleString("vi-VN")}catch(e){}
+const info=`<p class="mut">Mỗi lần đăng nhập, app tự nạp dữ liệu từ file nhaminh.json (cùng thư mục với index.html)${st?" (máy này đang có bản lúc "+st+")":""}.</p>`;
+if(!canBk())return `<div class="card" style="margin-top:14px"><h2>${ic("note")} Sao lưu dữ liệu</h2>${info}<p class="mut">Chỉ ba mẹ mới lấy được file và mã sao lưu.</p></div>`;
+return `<div class="card" style="margin-top:14px"><h2>${ic("note")} Sao lưu và chuyển sang máy khác</h2>${info}<div class="row"><button class="btn sm g" onclick="bkSave()">Lưu bản sao lưu mới</button><button class="btn sm" onclick="exportD()">Sao chép mã</button><button class="btn sm y" onclick="bkFile()">Tải nhaminh.json</button></div><div class="row"><button class="btn sm p" onclick="importD()">Dán mã</button><button class="btn sm p" onclick="$('bkf').click()">Nạp từ file</button><button class="btn sm c" onclick="bkUndo()">Hoàn tác lần nạp gần nhất</button><input id="bkf" type="file" accept=".json,.txt,application/json,text/plain" style="display:none" onchange="bkLoadFile(this)"></div></div>`}
+{const f0=fam;fam=function(){const h=f0(),k=h.indexOf("Sao lưu và chuyển sang máy khác");if(k<0)return h;const s=h.lastIndexOf('<div class="card"',k);return h.slice(0,s)+bkCard()}}
+{const d0=doPin;doPin=function(){const was=ME;d0();if(ME&&ME!==was)autoBk()}}
 draw();
+if(me())autoBk();
 </script>
 </body></html>
